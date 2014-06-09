@@ -23,14 +23,6 @@ TCP_RST = 0x04
 TCP_SYN = 0x02
 TCP_FIN = 0x01
 
-# Characteristics constants
-QOF_WS = 0x40
-QOF_SACK = 0x20
-QOF_TS = 0x10
-QOF_CE = 0x04
-QOF_ECT1 = 0x02
-QOF_ECT0 = 0x01
-
 # Flow end reasons
 END_IDLE = 0x01
 END_ACTIVE = 0x02
@@ -40,7 +32,7 @@ END_RESOURCE = 0x05
 
 # Default IEs are the same you get with QoF if you don't configure it.
 # Not super useful but kind of works as My First Flowmeter :)
-DEFAULT_QOF_IES = [  "flowStartMilliseconds",
+DEFAULT_FLOW_IES = [   "flowStartMilliseconds",
                         "flowEndMilliseconds",
                         "sourceIPv4Address",
                         "destinationIPv4Address",
@@ -51,8 +43,7 @@ DEFAULT_QOF_IES = [  "flowStartMilliseconds",
                         "packetDeltaCount",
                         "reverseOctetDeltaCount",
                         "reversePacketDeltaCount",
-                        "flowEndReason"
-                         ]
+                        "flowEndReason"]
 
 def iter_group(iterable, n, fillvalue=None):
     args = [iter(iterable)] * n
@@ -82,49 +73,20 @@ def dataframe_from_ipfix_stream(stream, ienames=DEFAULT_QOF_IES, chunksize=10000
     return pd.concat(_dataframe_iterator(i, columns, chunksize),
                      ignore_index=True)
         
-def dataframe_from_ipfix(filename, ienames=DEFAULT_QOF_IES, chunksize=100000, count=None):
+def dataframe_from_ipfix(filename, ienames=DEFAULT_QOF_IES, chunksize=100000, count=None, open_fn=open):
     """ 
     read an IPFIX file into a dataframe, selecting only records
     containing all the named IEs. uses chunked reading from the ipfix iterator
     to reduce memory requirements on read.
      
     """    
-    with open(filename, mode="rb") as f:
+    with open_fn(filename, mode="rb") as f:
         # get a stream to read from
         return dataframe_from_ipfix_stream(f, ienames, chunksize, count)
- 
-def drop_lossy(df):
-    """
-    Filter out any rows for which observation loss was detected.
-    
-    Returns a copy of the dataframe without lossy flows
 
-    """
-    try:
-        lossy = df['tcpSequenceLossCount'] + df['reverseTcpSequenceLossCount'] > 0
-        out = df[lossy == False]
-        del(out['tcpSequenceLossCount'])
-        del(out['reverseTcpSequenceLossCount'])
-        return out
-    except KeyError:
-        return df
-
-
-def drop_incomplete(df):
-    """
-    Filter out any flow records not representing complete flows.
-    
-    Returns a copy of the dataframe without incomplete flows.
-    """
-    try:
-        with_syn = ((df["initialTCPFlags"] & TCP_SYN) > 0) &\
-                   ((df["reverseInitialTCPFlags"] & TCP_SYN) > 0)
-        df = df[with_syn]
-        with_fin = (df["flowEndReason"] == END_FIN)
-        df = df[with_fin]
-    except KeyError:
-        return df
-
+#
+# General flow processing functions
+#
 def coerce_timestamps(df, cols=("flowStartMilliseconds", "flowEndMilliseconds")):    
     """
     coerce timestamps to datetime64
@@ -139,7 +101,7 @@ def coerce_timestamps(df, cols=("flowStartMilliseconds", "flowEndMilliseconds"))
             pass
 
     return df
-    
+
 def derive_duration(df):
     """
     add a floating point duration column
@@ -155,7 +117,7 @@ def derive_duration(df):
         pass
     
     return df
-        
+
 def derive_nets(df, v4_prefix=16, v6_prefix=64):
     """
     add columns to the given dataframe for uniform networks given a prefix.
@@ -189,7 +151,8 @@ def derive_nets(df, v4_prefix=16, v6_prefix=64):
     
     return df
 
-def flag_string(flagnum):
+
+def _flag_string(flagnum):
     flags = ((TCP_CWR, 'C'),
              (TCP_ECE, 'E'),
              (TCP_URG, 'U'),
@@ -207,7 +170,7 @@ def flag_string(flagnum):
 
 def derive_flag_strings(df):
     """
-    replace TCP flag columns with textual descriptions of TCP flags
+    add columns to a dataframe with textual descriptions of TCP flags
     
     modifies the dataframe in place and returns it.
     """
@@ -218,34 +181,12 @@ def derive_flag_strings(df):
     
     for col in cols:
         try:
-            df[col+"String"] = df[col].map(flag_string)
+            df[col+"String"] = df[col].map(_flag_string)
         except KeyError:
             pass
 
-def tcpchar_string(charnum):
-    chars = ((QOF_WS, 'Ws'),
-             (QOF_SACK, 'Sa'),
-             (QOF_TS, 'Ts'),
-             (QOF_CE,  'Ce'),
-             (QOF_ECT1,  'E1'),
-             (QOF_ECT0,  'E0'))
-    
-    charstr = ""
-    for char in chars: 
-        if (char[0] & charnum):
-            charstr += char[1]
-    return charstr
 
 
-def derive_tcpchar_strings(df):
-    """
-    replace TCP characteristic columns with textual descriptions of chars
-    
-    modifies the dataframe in place and returns it.
-    """
-    
-    cols = ('qofTcpCharacteristics', 
-            'reverseQofTcpCharacteristics')
     
     for col in cols:
         try:
