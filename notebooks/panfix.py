@@ -54,7 +54,7 @@ def _dataframe_iterator(tuple_iterator, columns, chunksize=100000):
         yield pd.DataFrame.from_records([rec for rec in 
                   filter(lambda a: a is not None, group)], columns=columns)
 
-def dataframe_from_ipfix_stream(stream, ienames=DEFAULT_QOF_IES, chunksize=100000, count=None):
+def dataframe_from_ipfix_stream(stream, ienames=DEFAULT_FLOW_IES, chunksize=100000, count=None):
     """ 
     read an IPFIX stream into a dataframe, selecting only records
     containing all the named IEs. uses chunked reading from the ipfix iterator
@@ -73,7 +73,7 @@ def dataframe_from_ipfix_stream(stream, ienames=DEFAULT_QOF_IES, chunksize=10000
     return pd.concat(_dataframe_iterator(i, columns, chunksize),
                      ignore_index=True)
         
-def dataframe_from_ipfix(filename, ienames=DEFAULT_QOF_IES, chunksize=100000, count=None, open_fn=open):
+def dataframe_from_ipfix(filename, ienames=DEFAULT_FLOW_IES, chunksize=100000, count=None, open_fn=open):
     """ 
     read an IPFIX file into a dataframe, selecting only records
     containing all the named IEs. uses chunked reading from the ipfix iterator
