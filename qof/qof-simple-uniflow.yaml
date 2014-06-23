@@ -1,0 +1,19 @@
+template:
+    - flowId
+    - flowStartMilliseconds
+    - flowEndMilliseconds
+    - sourceIPv4Address
+    - destinationIPv4Address
+    - sourceIPv6Address
+    - destinationIPv6Address
+    - sourceTransportPort
+    - destinationTransportPort
+    - protocolIdentifier
+    - flowEndReason
+    - packetDeltaCount
+    - octetDeltaCount
+    - transportOctetDeltaCount
+    - transportPacketDeltaCount
+    - initialTCPFlags 
+    - unionTCPFlags
+    - lastSynTcpFlags
